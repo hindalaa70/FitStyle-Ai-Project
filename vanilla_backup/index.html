@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitStyle AI - A Smart Fashion Assistant for Online Clothing Shoppers</title>
+  <meta name="description" content="Personalized fashion styling assistant utilizing AI pose estimation and shape analysis for custom size and outfit suggestions.">
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- jsPDF Library for client-side PDF compiler -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- --- APPLICATION HEADER --- -->
+  <header id="main-header" style="display: none;">
+    <div class="logo-container" onclick="window.location.reload();">
+      <div class="logo-circle">
+        <i data-lucide="shirt"></i>
+      </div>
+      <span class="logo-text">FitStyle <span class="brand-heading" style="font-size:1.6rem; font-weight:600;">AI</span></span>
+    </div>
+    
+    <div class="nav-controls">
+      <div id="user-badge" class="user-badge">
+        <i data-lucide="user" style="width:16px;height:16px;"></i>
+        <span id="user-email">guest@fitstyle.com</span>
+        <span id="user-role" class="badge">Shopper</span>
+      </div>
+
+      <button id="btn-go-admin" class="btn-secondary" style="display: none; border-color: var(--accent-gold); color: var(--accent-gold);">
+        <i data-lucide="layout-dashboard"></i> Store Admin
+      </button>
+      
+      <button id="btn-go-shopper" class="btn-secondary" style="display: none; border-color: var(--accent-rose); color: var(--accent-rose);">
+        <i data-lucide="shopping-bag"></i> Fit Studio
+      </button>
+      
+      <button id="btn-go-settings" class="btn-icon" title="API Settings">
+        <i data-lucide="settings"></i>
+      </button>
+      
+      <button id="btn-signout" class="btn-icon" title="Sign Out">
+        <i data-lucide="log-out"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- --- MAIN SCREEN MANAGER --- -->
+  <main class="main-content">
+
+    <!-- 1. AUTHENTICATION SCREEN -->
+    <section id="auth-screen" class="screen active">
+      <div class="auth-container">
+        <div class="auth-header">
+          <div class="logo-circle" style="width:60px; height:60px; margin:0 auto 1.5rem auto;">
+            <i data-lucide="shirt" style="font-size:2rem;"></i>
+          </div>
+          <h2 id="auth-mode-title">Welcome back</h2>
+          <p>Your Personal Stylist Awaits</p>
+        </div>
+
+        <form>
+          <!-- Role selector for registration -->
+          <div id="auth-role-selector" class="role-selector" style="display: none;">
+            <button type="button" id="role-shopper" class="role-btn active">
+              <i data-lucide="shopping-bag"></i>
+              <span>Online Shopper</span>
+            </button>
+            <button type="button" id="role-owner" class="role-btn">
+              <i data-lucide="store"></i>
+              <span>Store Owner</span>
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label for="auth-email">Email Address</label>
+            <div class="input-wrapper">
+              <i data-lucide="mail"></i>
+              <input type="email" id="auth-email" class="form-input" placeholder="e.g. style@fitstyle.com" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <div class="input-wrapper">
+              <i data-lucide="lock"></i>
+              <input type="password" id="auth-password" class="form-input" placeholder="Enter password (min 6 chars)" required>
+            </div>
+          </div>
+
+          <div id="auth-error" class="error-message">Incorrect password. Please try again.</div>
+
+          <button type="submit" id="auth-submit-btn" class="btn-primary mt-3">Sign In to Studio</button>
+        </form>
+
+        <!-- Quick Demo Access -->
+        <div class="demo-divider">
+          <span>or explore instantly</span>
+        </div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <button id="btn-demo-shopper" class="btn-secondary" style="flex:1; justify-content:center; gap:0.4rem; font-size:0.85rem; padding:0.65rem;">
+            <i data-lucide="shopping-bag" style="width:15px;height:15px;"></i> Demo as Shopper
+          </button>
+          <button id="btn-demo-owner" class="btn-secondary" style="flex:1; justify-content:center; gap:0.4rem; font-size:0.85rem; padding:0.65rem; border-color:var(--accent-gold); color:var(--accent-gold);">
+            <i data-lucide="store" style="width:15px;height:15px;"></i> Demo as Store Owner
+          </button>
+        </div>
+
+        <div class="auth-footer">
+          <span id="auth-toggle-text">Don't have an account? </span>
+          <a href="#" id="auth-toggle-link">Register</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. PHOTO UPLOAD & CALIBRATION SCREEN -->
+    <section id="upload-screen" class="screen">
+      <div class="panel-grid">
+        <!-- Left: Upload zone & Preview -->
+        <div>
+          <div class="section-card">
+            <h2 class="section-title"><i data-lucide="camera"></i> 1. Profile Upload</h2>
+            
+            <div id="upload-zone" class="upload-zone">
+              <input type="file" id="file-input" style="display: none;" accept="image/*">
+              
+              <div id="upload-instructions" class="upload-instructions">
+                <i data-lucide="upload-cloud" class="upload-icon"></i>
+                <h3>Drag &amp; Drop Full-Body Photo</h3>
+                <p>or click to browse local files (Supports JPG, PNG, WEBP)</p>
+                <p style="margin-top:0.75rem; font-size:0.75rem; opacity:0.8; font-style:italic;">
+                  For best results, upload a standing, front-facing photo in fitted clothing.
+                </p>
+              </div>
+
+              <div id="upload-preview-container" class="preview-container">
+                <img id="upload-preview-img" class="preview-image" src="#" alt="user preview">
+                <button type="button" id="btn-remove-upload" class="remove-upload-btn" title="Remove Photo">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Loader for Pose processing -->
+            <div id="pose-loading-indicator" class="loader-container" style="display: none;">
+              <div class="loading-spinner"></div>
+              <p style="font-weight:600;">Analyzing body landmarks...</p>
+              <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.25rem;">Detecting proportions and generating sizes</p>
+            </div>
+
+            <!-- Estimated body measurements calibration -->
+            <div id="calibration-panel" class="calibration-panel" style="display: none;">
+              <div class="flex-between">
+                <h4><i data-lucide="sliders-horizontal" style="display:inline; width:16px; margin-right:4px;"></i> Proportions Calibration</h4>
+                <span class="badge gold" id="detected-shape-text">Rectangle</span>
+              </div>
+              <p style="font-size:0.85rem;color:var(--text-muted);" id="shape-explanation-text">
+                Your body proportions are estimated below. Adjust the sliders manually if needed to calibrate the recommender.
+              </p>
+
+              <div class="slider-group">
+                <div class="slider-labels">
+                  <span class="slider-name">Shoulder Width</span>
+                  <span id="val-shoulder" class="slider-val">88 cm</span>
+                </div>
+                <input type="range" id="slider-shoulder" class="custom-range" min="30" max="150" value="88">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-labels">
+                  <span class="slider-name">Waist Width</span>
+                  <span id="val-waist" class="slider-val">78 cm</span>
+                </div>
+                <input type="range" id="slider-waist" class="custom-range" min="30" max="150" value="78">
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-labels">
+                  <span class="slider-name">Hip Width</span>
+                  <span id="val-hip" class="slider-val">92 cm</span>
+                </div>
+                <input type="range" id="slider-hip" class="custom-range" min="30" max="150" value="92">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Occasions & Target Action -->
+        <div>
+          <div class="section-card">
+            <h2 class="section-title"><i data-lucide="sparkles"></i> 2. Styling Occasion</h2>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1.5rem;">
+              Select the event occasion you are shopping for. FitStyle AI coordinates outfit selections to match the dress code.
+            </p>
+
+            <div class="occasions-grid">
+              <div class="occasion-card" data-occasion="Wedding">
+                <i data-lucide="heart"></i>
+                <span>Wedding</span>
+              </div>
+              <div class="occasion-card" data-occasion="Casual">
+                <i data-lucide="coffee"></i>
+                <span>Casual</span>
+              </div>
+              <div class="occasion-card" data-occasion="Formal">
+                <i data-lucide="briefcase"></i>
+                <span>Formal</span>
+              </div>
+              <div class="occasion-card" data-occasion="Party">
+                <i data-lucide="glass-water"></i>
+                <span>Party</span>
+              </div>
+              <div class="occasion-card" data-occasion="Interview">
+                <i data-lucide="award"></i>
+                <span>Interview</span>
+              </div>
+            </div>
+
+            <button id="btn-get-outfit" class="btn-primary mt-3" disabled>Get My Outfit</button>
+          </div>
+
+          <!-- Onboarding Tooltip Helper -->
+          <div class="section-card" style="background:linear-gradient(135deg, rgba(212,175,55,0.02), rgba(0,0,0,0));">
+            <h3 style="font-size:1.1rem;color:var(--accent-gold);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
+              <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Onboarding Tip
+            </h3>
+            <ul style="padding-left:1.25rem; font-size:0.85rem; color:var(--text-muted); display:flex; flex-direction:column; gap:0.5rem;">
+              <li>Ensure the camera is at chest level and catches your entire body (shoulders to feet).</li>
+              <li>Once uploaded, pose landmarks will map automatically to calculate your body shape.</li>
+              <li>Choose a category occasion above to query matched tops, bottoms, shoes, and bags!</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. OUTFIT RECOMMENDATION & TRY-ON SCREEN -->
+    <section id="recommendation-screen" class="screen">
+      <div class="split-layout">
+        <!-- Left Visual TRY-ON Viewport -->
+        <div class="visualization-column">
+          <div class="section-card" style="padding:1rem;">
+            <div class="canvas-viewport">
+              <canvas id="viewport-canvas" class="viewport-canvas"></canvas>
+              
+              <!-- Sizing Badge -->
+              <div id="size-badge-overlay" class="size-badge-overlay">
+                <i data-lucide="ruler" style="width:16px;height:16px;color:var(--accent-gold);"></i>
+                <span id="size-badge-text">Recommended Size: M</span>
+              </div>
+            </div>
+            
+            <div style="display:flex; gap:1rem; margin-top:1.25rem;">
+              <button id="btn-back-to-upload" class="btn-secondary" style="flex:1;">
+                <i data-lucide="arrow-left"></i> Re-Calibrate
+              </button>
+              <button id="btn-download-summary" class="btn-primary" style="flex:1.2;">
+                <i data-lucide="file-text" style="display:inline; width:16px; margin-right:4px;"></i> Download Summary
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Outfit Tiles & AI rationale -->
+        <div>
+          <div class="section-card">
+            <h2 class="section-title"><i data-lucide="layers"></i> Recommended Outfit</h2>
+            
+            <!-- 4 Grid outfit categories -->
+            <div id="outfit-container" class="outfit-grid">
+              <!-- Dynamically populated in app.js -->
+            </div>
+
+            <!-- Gemini advice rationale description -->
+            <div class="ai-styling-box">
+              <h3><i data-lucide="cpu"></i> AI Personal Stylist Styling Advice</h3>
+              <p id="ai-advice-text" class="ai-styling-text">
+                Consulting your AI Personal Stylist for styling rationale...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. STORE OWNER CATALOGUE ADMIN PANEL -->
+    <section id="admin-screen" class="screen">
+      <!-- Admin Header info card -->
+      <div class="admin-header-row">
+        <div class="admin-title-col">
+          <h2>Catalogue Manager</h2>
+          <p>Manage clothing products, prices, and occasion constraints</p>
+        </div>
+      </div>
+
+      <div class="stats-card-row">
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="tag"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Listed Inventory</span>
+            <span id="admin-inventory-count" class="stat-value">12</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="user-check"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Store Database</span>
+            <span id="admin-db-status" class="stat-value" style="font-size:1.2rem; margin-top:0.35rem; color:var(--accent-gold);">Local Mode</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="admin-actions-bar">
+          <div class="admin-search-wrapper">
+            <i data-lucide="search"></i>
+            <input type="text" id="admin-search-input" class="admin-search-input" placeholder="Search garment or category...">
+          </div>
+          <button id="btn-add-garment" class="btn-primary" style="width:auto; padding:0.65rem 1.5rem; text-transform:none;">
+            <i data-lucide="plus" style="display:inline; width:16px; margin-right:4px;"></i> Add Garment
+          </button>
+        </div>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Thumb</th>
+                <th>Product Name / ID</th>
+                <th>Category</th>
+                <th>Fit Specs</th>
+                <th>Shapes Match</th>
+                <th>Price</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-garment-table-body">
+              <!-- Dynamically populated in app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- --- 1. SWAP DRAWER SELECTOR --- -->
+  <div id="drawer-backdrop" class="drawer-backdrop"></div>
+  
+  <div id="swap-drawer" class="drawer">
+    <div class="drawer-header">
+      <h3 id="swap-drawer-title">Swap Alternatives</h3>
+      <button id="swap-drawer-close" class="drawer-close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="drawer-content">
+      <div id="swap-items-list" class="drawer-items-list">
+        <!-- Populated in app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- --- 2. ADD / EDIT GARMENT DRAWER (ADMIN) --- -->
+  <div id="admin-drawer" class="drawer">
+    <div class="drawer-header">
+      <h3 id="admin-drawer-title">Add Product Intake</h3>
+      <button id="admin-drawer-close" class="drawer-close"><i data-lucide="x"></i></button>
+    </div>
+    <div class="drawer-content">
+      <form id="admin-form" style="display:flex; flex-direction:column; gap:1.25rem;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-name">Garment Title</label>
+          <input type="text" id="prod-name" class="form-input" style="padding-left:1rem;" placeholder="e.g. Linen Tailored Coat" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-category">Product Category</label>
+          <select id="prod-category" class="form-input" style="padding-left:1rem; background-image:none; cursor:pointer;" required>
+            <option value="Top">Top</option>
+            <option value="Bottom">Bottom</option>
+            <option value="Footwear">Footwear</option>
+            <option value="Accessory">Accessory</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-price">Retail Price ($ USD)</label>
+          <input type="number" id="prod-price" class="form-input" style="padding-left:1rem;" placeholder="e.g. 79.99" step="0.01" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-sizes">Available Sizes (Comma separated)</label>
+          <input type="text" id="prod-sizes" class="form-input" style="padding-left:1rem;" placeholder="e.g. S, M, L, XL" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-occasions">Fit Occasions (Comma separated)</label>
+          <input type="text" id="prod-occasions" class="form-input" style="padding-left:1rem;" placeholder="e.g. Formal, Interview, Casual" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-shapes">Matching Silhouettes (Comma separated)</label>
+          <input type="text" id="prod-shapes" class="form-input" style="padding-left:1rem;" placeholder="e.g. Hourglass, Rectangle, Pear" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-image-url">Image URL</label>
+          <input type="url" id="prod-image-url" class="form-input" style="padding-left:1rem;" placeholder="e.g. https://unsplash.com/photo-...">
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-image-file">Or Upload Image File</label>
+          <input type="file" id="prod-image-file" class="form-input" style="padding-left:1rem;" accept="image/*">
+        </div>
+
+        <button type="submit" id="admin-form-submit-btn" class="btn-primary mt-3">List to Shop</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- --- 3. PDF PREVIEW SUMMARY MODAL --- -->
+  <div id="pdf-modal" class="modal-wrapper">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Styling Report PDF Preview</h3>
+        <button id="pdf-modal-close" class="modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="pdf-preview-content">
+          <!-- Rendered in app.js -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-pdf" class="btn-secondary">Close</button>
+        <button id="btn-confirm-pdf-download" class="btn-primary" style="width:auto; padding:0.6rem 2rem;">Download PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- --- 4. API SETTINGS CONFIG MODAL --- -->
+  <div id="settings-modal" class="modal-wrapper">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Developer API Integrations</h3>
+        <button id="settings-modal-close" class="modal-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-panel">
+
+          <!-- Firebase Section -->
+          <div class="settings-group">
+            <div class="flex-between" style="margin-bottom:0.75rem;">
+              <span class="settings-group-title"><i data-lucide="database"></i> Firebase Credentials</span>
+              <span id="firebase-status-indicator" class="settings-status-indicator">Simulation Mode</span>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem; line-height:1.5;">
+              Paste your Firebase project config below. Get it from 
+              <a href="https://console.firebase.google.com/project/fitstyle-ai-b6276/settings/general" target="_blank" rel="noopener" style="color:var(--accent-gold);">Firebase Console → Project Settings → Your apps → SDK setup &amp; configuration</a>.
+            </p>
+            <label for="firebase-config-json" style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:0.5rem;">Firebase Config Object (JSON):</label>
+            <textarea id="firebase-config-json" class="form-input" style="padding:0.75rem; font-family:monospace; font-size:0.78rem; height:140px; resize:vertical; line-height:1.5;"></textarea>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem; font-style:italic;">
+              ⚠ After saving, the page reloads to apply Firebase authentication.
+            </p>
+          </div>
+
+          <!-- API Keys Section -->
+          <div class="settings-group">
+            <span class="settings-group-title"><i data-lucide="key"></i> External API Keys</span>
+            <div style="display:flex; flex-direction:column; gap:1rem; margin-top:1rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="gemini-key">
+                  Google Gemini API Key 
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:var(--accent-gold); font-weight:400; font-size:0.78rem; margin-left:6px;">Get key →</a>
+                </label>
+                <input type="password" id="gemini-key" class="form-input" style="padding-left:1rem;" placeholder="AIzaSy...">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="fashn-key">
+                  FASHN AI Virtual Try-On Key
+                  <a href="https://fashn.ai" target="_blank" rel="noopener" style="color:var(--accent-gold); font-weight:400; font-size:0.78rem; margin-left:6px;">Get key →</a>
+                </label>
+                <input type="password" id="fashn-key" class="form-input" style="padding-left:1rem;" placeholder="fn_...">
+              </div>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:1rem;font-style:italic;">
+              Leave keys blank to run in <strong>Demo/Simulation Mode</strong> with high-fidelity template descriptions and Canvas 2D overlays.
+            </p>
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-settings" class="btn-primary" style="width:100%;">Save &amp; Apply Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Module Scripts -->
+  <script src="js/config.js?v=1.3"></script>
+  <script>
+    // Initialize Firebase client context after config is loaded
+    (function() {
+      try {
+        // Clear any stale dummy config from a previous session
+        const storedRaw = localStorage.getItem('fitstyle_firebase_config');
+        if (storedRaw) {
+          try {
+            const stored = JSON.parse(storedRaw);
+            if (stored.apiKey && stored.apiKey.includes('Dummy')) {
+              localStorage.removeItem('fitstyle_firebase_config');
+              console.log('Cleared stale dummy Firebase config from localStorage.');
+            }
+          } catch(e) { /* ignore parse errors */ }
+        }
+
+        const config = window.FitStyleConfig.getFirebaseConfig();
+        const isDummy = config.apiKey && config.apiKey.includes('Dummy');
+        if (window.firebase && !isDummy) {
+          if (!firebase.apps.length) {
+            firebase.initializeApp(config);
+          }
+          console.log('%c✅ Firebase connected — Project: ' + config.projectId, 'color:#d4af37; font-weight:bold;');
+        } else {
+          console.log('%c⚠️ Running in Local Simulation Mode', 'color:#e95f76; font-weight:bold;');
+        }
+      } catch (e) {
+        console.warn('Firebase startup initialization bypassed:', e);
+      }
+    })();
+  </script>
+  <script src="js/auth.js?v=1.3"></script>
+  <script src="js/database.js?v=1.3"></script>
+  <script src="js/pose.js?v=1.3"></script>
+  <script src="js/ai.js?v=1.3"></script>
+  <script src="js/pdf.js?v=1.3"></script>
+  <script src="js/app.js?v=1.3"></script>
+
+</body>
+</html>
