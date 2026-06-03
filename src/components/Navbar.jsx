@@ -13,7 +13,7 @@ const Navbar = () => {
   const isAdminPath = location.pathname === '/admin';
 
   return (
-    <header className="bg-dark-bg/85 backdrop-blur-md border-b border-dark-border py-4 px-6 sticky top-0 z-40 flex items-center justify-between">
+    <header className="bg-white border-b border-surface-border py-4 px-6 sticky top-0 z-40 flex items-center justify-between shadow-sm">
       <div 
         onClick={() => navigate(userRole === 'owner' ? '/admin' : '/studio')} 
         className="flex items-center gap-3 cursor-pointer select-none"
@@ -27,19 +27,6 @@ const Navbar = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* User Info Badge */}
-        <div className="hidden sm:flex items-center gap-2 glass-panel border-dark-border py-1.5 px-3 rounded-full text-xs font-inter font-medium text-white">
-          <User className="h-3.5 w-3.5 text-gold" />
-          <span>{currentUser.email}</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${
-            userRole === 'owner' 
-              ? 'bg-gold-light text-gold border border-gold/20' 
-              : 'bg-rose-light text-rose border border-rose/20'
-          }`}>
-            {userRole === 'owner' ? 'Store Owner' : 'Shopper'}
-          </span>
-        </div>
-
         {/* Owner Nav Toggle Controls */}
         {userRole === 'owner' && (
           <>

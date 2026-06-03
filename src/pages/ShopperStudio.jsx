@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMediaPipe } from '../hooks/useMediaPipe';
 import { recommendSize, classifyProportions } from '../utils/poseUtils';
-import { fetchTryOn, fetchStyleAdvice } from '../services/api';
+import { fetchStyleAdvice } from '../services/api';
 import { db, seedFirestoreIfEmpty } from '../services/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import Navbar from '../components/Navbar';
@@ -63,11 +63,11 @@ const ShopperStudio = () => {
   const fileInputRef = useRef(null);
 
   const occasionsList = [
-    { name: 'Wedding', icon: '💝' },
-    { name: 'Casual', icon: '☕' },
-    { name: 'Formal', icon: '👔' },
-    { name: 'Party', icon: '🥂' },
-    { name: 'Interview', icon: '💼' }
+    { name: 'Wedding', icon: 'ðŸ’' },
+    { name: 'Casual', icon: 'â˜•' },
+    { name: 'Formal', icon: 'ðŸ‘”' },
+    { name: 'Party', icon: 'ðŸ¥‚' },
+    { name: 'Interview', icon: 'ðŸ’¼' }
   ];
 
   // Fetch products from Firestore on load and seed if empty
@@ -289,6 +289,13 @@ const ShopperStudio = () => {
     const footwear = matchForCategory('Footwear');
     const accessory = matchForCategory('Accessory');
 
+    // DEBUG: Log full product object to identify image field name
+    if (top) {
+      console.log('[ShopperStudio] TOP product object:', top);
+      console.log('[ShopperStudio] TOP imageUrl:', top.imageUrl);
+      console.log('[ShopperStudio] TOP all fields:', Object.keys(top));
+    }
+
     const matchedOutfit = { Top: top, Bottom: bottom, Footwear: footwear, Accessory: accessory };
     setCurrentOutfit(matchedOutfit);
 
@@ -298,6 +305,11 @@ const ShopperStudio = () => {
 
     // Run AI Styling advice in parallel
     triggerAIStylingAdvice(matchedOutfit, occasionName);
+
+    // Auto-trigger virtual try-on with TOP item if available
+    if (top && (top.category === 'Top' || top.category === 'Bottom')) {
+      triggerVirtualTryOn(top);
+    }
   };
 
   // Fetch Groq styling advice
@@ -305,7 +317,16 @@ const ShopperStudio = () => {
     try {
       setAdviceLoading(true);
       setStylingAdvice('Consulting your AI Personal Stylist...');
-      const res = await fetchStyleAdvice(bodyShape, occasionName, outfit);
+      // Filter outfit to only include female/non-male products for gender-appropriate recommendations
+      const filteredOutfit = Object.keys(outfit).reduce((acc, category) => {
+        const item = outfit[category];
+        // Include all items (Firestore products are already female/unisex; no male products in catalogue)
+        if (item) {
+          acc[category] = item;
+        }
+        return acc;
+      }, {});
+      const res = await fetchStyleAdvice(bodyShape, occasionName, filteredOutfit, 'female');
       setStylingAdvice(res.advice);
     } catch (err) {
       console.warn('[ShopperStudio] Groq styling failed, running fallback advice.');
@@ -315,37 +336,93 @@ const ShopperStudio = () => {
     }
   };
 
-  // Trigger Replicate Virtual Try-On securely
+  const createGradientOverlayTryOn = async (humanImageSrc, garmentImageUrl, landmarks, category) => {
+    if (!humanImageSrc || !garmentImageUrl || !landmarks) {
+      throw new Error('Missing human image, garment image, or landmarks for try-on overlay');
+    }
+
+    const humanImage = new Image();
+    const garmentImage = new Image();
+    humanImage.src = humanImageSrc;
+    garmentImage.crossOrigin = 'anonymous';
+    garmentImage.src = garmentImageUrl;
+
+    await Promise.all([
+      new Promise((resolve, reject) => {
+        humanImage.onload = resolve;
+        humanImage.onerror = () => reject(new Error('Failed to load user photo for overlay'));
+      }),
+      new Promise((resolve, reject) => {
+        garmentImage.onload = resolve;
+        garmentImage.onerror = () => reject(new Error('Failed to load garment image for overlay'));
+      })
+    ]);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = humanImage.naturalWidth || 1024;
+    canvas.height = humanImage.naturalHeight || 1024;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(humanImage, 0, 0, canvas.width, canvas.height);
+
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftHip = landmarks[23];
+    const rightHip = landmarks[24];
+
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) {
+      throw new Error('Required shoulder/hip landmarks are missing for overlay');
+    }
+
+    const shoulderX = leftShoulder.x * canvas.width;
+    const shoulderY = leftShoulder.y * canvas.height;
+    const shoulderDistance = Math.abs((rightShoulder.x - leftShoulder.x) * canvas.width);
+    const hipDistance = Math.abs((leftHip.y - leftShoulder.y) * canvas.height);
+    const overlayWidth = Math.max(shoulderDistance * 1.2, 100);
+    const overlayHeight = Math.max(hipDistance * 1.3, 100);
+
+    const x = Math.max(0, shoulderX);
+    const y = category === 'Bottom'
+      ? Math.max(0, leftHip.y * canvas.height - overlayHeight * 0.15)
+      : Math.max(0, shoulderY);
+
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(garmentImage, x, y, overlayWidth, overlayHeight);
+    ctx.restore();
+
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  // Client-side Canvas overlay try-on
   const triggerVirtualTryOn = async (item) => {
     if (!item) return;
-    
-    // Virtual Try-on is only supported for Top and Bottom categories
     if (item.category !== 'Top' && item.category !== 'Bottom') {
       alert('Virtual Try-on is supported for Tops and Bottoms only.');
+      return;
+    }
+    if (!uploadedImage) {
+      console.error('[ShopperStudio] No uploaded image available for try-on');
+      alert('Please upload a photo first before trying on.');
+      return;
+    }
+    if (!poseAnalysis?.landmarks) {
+      console.error('[ShopperStudio] No pose landmarks available for try-on overlay');
+      alert('Please re-analyze your photo to enable virtual try-on.');
       return;
     }
 
     try {
       setTryOnLoading(true);
-      
-      // Determine Tryon Category
-      const tryonCat = item.category === 'Top' ? 'upper_body' : 'lower_body';
-      
-      console.log(`[ShopperStudio] Calling tryon on server for item ${item.name}`);
-      const res = await fetchTryOn(
-        uploadedImage, 
-        item.imageUrl, 
-        item.name, 
-        tryonCat
-      );
-
-      setTryOnImage(res.imageUrl);
+      setTryOnImage(null);
+      console.log(`[ShopperStudio] Creating canvas overlay try-on for ${item.name}`);
+      const overlayImage = await createGradientOverlayTryOn(uploadedImage, item.imageUrl, poseAnalysis.landmarks);
+      setTryOnImage(overlayImage);
       setActiveView('tryon');
     } catch (error) {
-      console.error('[ShopperStudio] Try-on operation failed:', error);
-      alert('AI Try-on service encountered an error. Swapping preview to fallback visual.');
-      // Fail back to Unsplash stylized tryon fallback image
-      setTryOnImage('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&auto=format&fit=crop&q=80');
+      console.error('[ShopperStudio] Try-on overlay failed:', error);
+      alert(`AI Try-on overlay failed: ${error.message}. Reverting to original photo.`);
+      setTryOnImage(null);
       setActiveView('tryon');
     } finally {
       setTryOnLoading(false);
@@ -367,13 +444,18 @@ const ShopperStudio = () => {
     // Reset try-on image since outfit changed, and request new styling advice
     setTryOnImage(null);
     triggerAIStylingAdvice(updatedOutfit, selectedOccasion);
+    
+    // Re-trigger virtual try-on with the newly swapped item if it's a Top or Bottom
+    if (newGarment && (newGarment.category === 'Top' || newGarment.category === 'Bottom')) {
+      triggerVirtualTryOn(newGarment);
+    }
   };
 
   // Compute recommended fit details for display
   const generalSize = poseAnalysis ? recommendSize(poseAnalysis.measurements, 'General') : { letter: 'M', numeric: 38 };
 
   return (
-    <div className="min-h-screen bg-dark-bg text-white flex flex-col">
+    <div className="min-h-screen bg-surface-bg text-surface-text flex flex-col">
       <Navbar />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 font-inter">
@@ -383,8 +465,8 @@ const ShopperStudio = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             
             {/* Left: Drag Drop Input / Canvas Preview */}
-            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden">
-              <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-gold border-b border-dark-border pb-3 mb-6">
+            <div className="light-card rounded-2xl p-6 relative overflow-hidden">
+              <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-gold border-b border-surface-border pb-3 mb-6">
                 <Camera className="h-5 w-5" />
                 <span>1. Silhouette Upload</span>
               </h2>
@@ -393,7 +475,7 @@ const ShopperStudio = () => {
                 // Drag Drop Zone
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-dark-border hover:border-gold/40 rounded-xl py-16 px-6 text-center cursor-pointer hover:bg-white/5 transition-all group relative"
+                  className="border-2 border-dashed border-surface-border hover:border-gold/40 rounded-xl py-16 px-6 text-center cursor-pointer hover:bg-surface-bg/80 transition-all group relative"
                 >
                   <input 
                     type="file" 
@@ -403,18 +485,18 @@ const ShopperStudio = () => {
                     className="hidden" 
                   />
                   <UploadCloud className="h-12 w-12 text-dark-muted group-hover:text-gold mx-auto mb-4 transition-colors" />
-                  <h3 className="font-outfit font-semibold text-lg text-white mb-1">Drag & Drop Silhouette Photo</h3>
+                  <h3 className="font-outfit font-semibold text-lg text-surface-text mb-1">Drag & Drop Silhouette Photo</h3>
                   <p className="text-xs text-dark-muted mb-4 max-w-xs mx-auto">
                     Supports JPG, PNG, or WEBP formats. For high accuracy, use a front-facing standing photo.
                   </p>
-                  <button type="button" className="glass-panel border-dark-border py-2 px-5 rounded-lg text-xs font-semibold text-white group-hover:border-gold/30 transition-all">
+                  <button type="button" className="light-card border-surface-border py-2 px-5 rounded-lg text-xs font-semibold text-surface-text group-hover:border-gold/30 transition-all">
                     Browse Files
                   </button>
                 </div>
               ) : (
                 // Image Canvas preview and removal trigger
                 <div className="space-y-4">
-                  <div className="relative rounded-xl overflow-hidden border border-dark-border bg-dark-bg/60">
+                  <div className="relative rounded-xl overflow-hidden border border-surface-border bg-surface-card">
                     <canvas ref={canvasRef} className="w-full h-auto block" />
                     
                     {analyzingPose && (
@@ -434,7 +516,7 @@ const ShopperStudio = () => {
                     </button>
                     <button 
                       onClick={() => runPoseAnalysis(uploadedImage)}
-                      className="glass-panel border-dark-border hover:bg-white/5 text-white py-2 px-4 rounded-xl text-xs font-semibold font-outfit transition-all flex items-center gap-1.5"
+                      className="light-card border-surface-border hover:bg-surface-bg/80 text-surface-text py-2 px-4 rounded-xl text-xs font-semibold font-outfit transition-all flex items-center gap-1.5"
                     >
                       <RefreshCw className="h-3 w-3" />
                       <span>Re-analyze</span>
@@ -446,8 +528,8 @@ const ShopperStudio = () => {
 
             {/* Right: Manual adjustment sliders */}
             <div className="space-y-6">
-              <div className="glass-panel rounded-2xl p-6">
-                <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-rose border-b border-dark-border pb-3 mb-6">
+              <div className="light-card rounded-2xl p-6">
+                <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-rose border-b border-surface-border pb-3 mb-6">
                   <Sliders className="h-5 w-5" />
                   <span>2. Calibrate Proportions</span>
                 </h2>
@@ -458,7 +540,7 @@ const ShopperStudio = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between gap-4 bg-white/5 border border-dark-border p-4 rounded-xl">
+                    <div className="flex items-center justify-between gap-4 bg-surface-bg/80 border border-surface-border p-4 rounded-xl">
                       <div>
                         <span className="text-[10px] text-dark-muted font-semibold uppercase tracking-wider block">Estimated Silhouette</span>
                         <span className="text-gold font-outfit font-bold text-lg">{bodyShape}</span>
@@ -477,7 +559,7 @@ const ShopperStudio = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs font-semibold">
                           <span className="text-dark-muted">Shoulder Width</span>
-                          <span className="text-white">{shoulderSlider} cm</span>
+                          <span className="text-surface-text">{shoulderSlider} cm</span>
                         </div>
                         <input 
                           type="range" 
@@ -493,7 +575,7 @@ const ShopperStudio = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs font-semibold">
                           <span className="text-dark-muted">Waist Width</span>
-                          <span className="text-white">{waistSlider} cm</span>
+                          <span className="text-surface-text">{waistSlider} cm</span>
                         </div>
                         <input 
                           type="range" 
@@ -509,7 +591,7 @@ const ShopperStudio = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs font-semibold">
                           <span className="text-dark-muted">Hip Width</span>
-                          <span className="text-white">{hipSlider} cm</span>
+                          <span className="text-surface-text">{hipSlider} cm</span>
                         </div>
                         <input 
                           type="range" 
@@ -527,8 +609,8 @@ const ShopperStudio = () => {
 
               {/* Step 3: Event Occasion selection */}
               {poseAnalysis && (
-                <div className="glass-panel rounded-2xl p-6">
-                  <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-gold border-b border-dark-border pb-3 mb-6">
+                <div className="light-card rounded-2xl p-6">
+                  <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-gold border-b border-surface-border pb-3 mb-6">
                     <Sparkles className="h-5 w-5" />
                     <span>3. Choose Styling Event</span>
                   </h2>
@@ -541,7 +623,7 @@ const ShopperStudio = () => {
                       <button
                         key={oc.name}
                         onClick={() => handleSelectOccasion(oc.name)}
-                        className="glass-panel border-dark-border hover:border-gold/30 hover:bg-gold-light/10 p-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all group"
+                        className="light-card border-surface-border hover:border-gold/30 hover:bg-gold-light/10 p-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-all group"
                       >
                         <span className="text-2xl group-hover:scale-110 transition-transform">{oc.icon}</span>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-dark-muted group-hover:text-gold transition-colors">
@@ -563,9 +645,9 @@ const ShopperStudio = () => {
             
             {/* Column 1 (Left 5 grid spans): Viewport */}
             <div className="lg:col-span-5 space-y-4">
-              <div className="glass-panel rounded-2xl p-4">
+              <div className="light-card rounded-2xl p-4">
                 <div className="canvas-viewport relative">
-                  {activeView === 'tryon' && (tryOnImage || !poseAnalysis?.landmarks) ? (
+                  {activeView === 'tryon' ? (
                     <img 
                       src={tryOnImage || uploadedImage} 
                       alt="User Fitting Result" 
@@ -579,7 +661,7 @@ const ShopperStudio = () => {
                     <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center text-center p-4">
                       <div className="space-y-4">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gold mx-auto"></div>
-                        <p className="text-white text-sm font-semibold font-outfit">AI Try-On rendering...</p>
+                        <p className="text-surface-text text-sm font-semibold font-outfit">AI Try-On rendering...</p>
                         <p className="text-dark-muted text-xs font-inter max-w-[200px]">Generating virtual fit using IDM-VTON (10-30s delay)</p>
                       </div>
                     </div>
@@ -595,7 +677,7 @@ const ShopperStudio = () => {
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   <button
                     onClick={() => setStep(1)}
-                    className="glass-panel border-dark-border hover:bg-white/5 text-white py-2.5 px-4 rounded-xl text-sm font-semibold font-outfit flex items-center justify-center gap-1.5 transition-all"
+                    className="light-card border-surface-border hover:bg-surface-bg/80 text-surface-text py-2.5 px-4 rounded-xl text-sm font-semibold font-outfit flex items-center justify-center gap-1.5 transition-all"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     <span>Re-Calibrate</span>
@@ -613,13 +695,13 @@ const ShopperStudio = () => {
 
               {/* Selector for viewport visual (tryon vs skeleton landmarks) */}
               {poseAnalysis?.landmarks && (
-                <div className="glass-panel border-dark-border rounded-xl p-2.5 flex items-center justify-between text-xs font-semibold">
+                <div className="light-card border-surface-border rounded-xl p-2.5 flex items-center justify-between text-xs font-semibold">
                   <span className="text-dark-muted pl-1.5">Viewport Visual Angle:</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setActiveView('tryon')}
                       className={`py-1.5 px-3.5 rounded-lg transition-colors ${
-                        activeView === 'tryon' ? 'bg-gold text-black' : 'text-dark-muted hover:text-white'
+                        activeView === 'tryon' ? 'bg-gold text-black' : 'text-dark-muted hover:text-surface-text'
                       }`}
                     >
                       AI Fit Image
@@ -627,7 +709,7 @@ const ShopperStudio = () => {
                     <button
                       onClick={() => setActiveView('skeleton')}
                       className={`py-1.5 px-3.5 rounded-lg transition-colors ${
-                        activeView === 'skeleton' ? 'bg-gold text-black' : 'text-dark-muted hover:text-white'
+                        activeView === 'skeleton' ? 'bg-gold text-black' : 'text-dark-muted hover:text-surface-text'
                       }`}
                     >
                       Landmark Points
@@ -640,8 +722,8 @@ const ShopperStudio = () => {
             {/* Column 2 (Right 7 grid spans): Match Tiles & AI style box */}
             <div className="lg:col-span-7 space-y-6">
               
-              <div className="glass-panel rounded-2xl p-6">
-                <div className="flex justify-between items-center border-b border-dark-border pb-3 mb-6">
+              <div className="light-card rounded-2xl p-6">
+                <div className="flex justify-between items-center border-b border-surface-border pb-3 mb-6">
                   <h2 className="text-xl font-outfit font-bold flex items-center gap-2 text-gold">
                     <Layers className="h-5 w-5" />
                     <span>Recommended Dress Coordination</span>
@@ -659,7 +741,7 @@ const ShopperStudio = () => {
                     
                     if (!item) {
                       return (
-                        <div key={category} className="glass-panel border-dashed border-dark-border rounded-xl p-4 flex flex-col items-center justify-center text-center h-[200px]">
+                        <div key={category} className="light-card border-dashed border-surface-border rounded-xl p-4 flex flex-col items-center justify-center text-center h-[200px]">
                           <AlertCircle className="h-8 w-8 text-dark-muted mb-2" />
                           <span className="text-xs text-dark-muted font-semibold uppercase tracking-wider block">{category}</span>
                           <span className="text-sm font-outfit font-medium mt-1">Item Unavailable</span>
@@ -670,16 +752,19 @@ const ShopperStudio = () => {
                     const isTryOnSupported = category === 'Top' || category === 'Bottom';
 
                     return (
-                      <div key={category} className="glass-panel border-dark-border rounded-xl overflow-hidden flex flex-col group hover:border-gold/25 transition-all">
+                      <div key={category} className="light-card border-surface-border rounded-xl overflow-hidden flex flex-col group hover:border-gold/25 transition-all">
                         {/* Garment Image */}
-                        <div className="relative aspect-[4/3] bg-dark-bg/60 overflow-hidden border-b border-dark-border">
+                        <div className="relative aspect-[4/3] bg-surface-card overflow-hidden border-b border-surface-border">
                           <img 
                             src={item.imageUrl} 
                             alt={item.name} 
                             className="w-full h-full object-cover"
                             loading="lazy"
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23374151%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22system-ui%22 font-size=%2218%22 fill=%22%236B7280%22%3EImage Unavailable%3C/text%3E%3C/svg%3E';
+                            }}
                           />
-                          <span className="absolute top-2.5 left-2.5 bg-dark-bg/85 backdrop-blur-sm border border-dark-border text-white text-[10px] font-bold tracking-wider py-1 px-2.5 rounded-full uppercase">
+                          <span className="absolute top-2.5 left-2.5 bg-surface-card/90 backdrop-blur-sm border border-surface-border text-surface-text text-[10px] font-bold tracking-wider py-1 px-2.5 rounded-full uppercase">
                             Size {itemSize.letter}
                           </span>
                         </div>
@@ -688,12 +773,12 @@ const ShopperStudio = () => {
                         <div className="p-3.5 flex-1 flex flex-col justify-between">
                           <div>
                             <span className="text-[10px] text-dark-muted uppercase font-bold tracking-wider">{category}</span>
-                            <h4 className="text-sm font-semibold font-outfit text-white leading-snug line-clamp-1 mt-0.5" title={item.name}>
+                            <h4 className="text-sm font-semibold font-outfit text-surface-text leading-snug line-clamp-1 mt-0.5" title={item.name}>
                               {item.name}
                             </h4>
                           </div>
                           
-                          <div className="flex justify-between items-center gap-2 mt-4 pt-3 border-t border-dark-border/40">
+                          <div className="flex justify-between items-center gap-2 mt-4 pt-3 border-t border-surface-border/60">
                             <span className="text-xs text-gold font-bold font-inter">${parseFloat(item.price).toFixed(2)}</span>
                             <div className="flex gap-2">
                               {isTryOnSupported && (
@@ -707,7 +792,7 @@ const ShopperStudio = () => {
                               )}
                               <button
                                 onClick={() => openSwap(category)}
-                                className="glass-panel border-dark-border hover:bg-white/5 text-white text-xs font-semibold py-1.5 px-3 rounded-lg font-outfit transition-all flex items-center gap-1"
+                                className="light-card border-surface-border hover:bg-surface-bg/80 text-surface-text text-xs font-semibold py-1.5 px-3 rounded-lg font-outfit transition-all flex items-center gap-1"
                               >
                                 <RefreshCw className="h-3 w-3 shrink-0" />
                                 <span>Swap</span>
@@ -722,10 +807,10 @@ const ShopperStudio = () => {
               </div>
 
               {/* AI Styling advice explanation box */}
-              <div className="glass-panel-gold rounded-2xl p-6">
+              <div className="light-card border border-gold-light rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Cpu className="h-5 w-5 text-gold" />
-                  <h3 className="text-lg font-outfit font-bold text-white">AI Stylist Rationale</h3>
+                  <h3 className="text-lg font-outfit font-bold text-surface-text">AI Stylist Rationale</h3>
                 </div>
 
                 {adviceLoading ? (
@@ -790,3 +875,4 @@ const Loader2 = ({ className }) => (
 );
 
 export default ShopperStudio;
+

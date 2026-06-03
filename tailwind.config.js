@@ -7,6 +7,25 @@ export default {
   theme: {
     extend: {
       colors: {
+        primary: {
+          DEFAULT: '#8B1A6B',
+          hover: '#7a1560',
+          light: 'rgba(139, 26, 107, 0.10)',
+          faint: 'rgba(139, 26, 107, 0.05)',
+        },
+        accent: {
+          DEFAULT: '#D4006A',
+          hover: '#bb005d',
+          light: 'rgba(212, 0, 106, 0.12)',
+        },
+        surface: {
+          bg: '#f5f4f9',
+          card: '#ffffff',
+          border: 'rgba(139, 26, 107, 0.12)',
+          muted: '#8e8a9a',
+          text: '#1a1a2e',
+        },
+        // Keep these for any remaining dark components
         dark: {
           bg: '#0a0b0d',
           card: 'rgba(25, 27, 31, 0.45)',

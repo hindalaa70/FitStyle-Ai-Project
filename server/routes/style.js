@@ -41,7 +41,7 @@ const getFallbackAdvice = (bodyShape, occasion, selectedOutfit) => {
 };
 
 router.post('/', async (req, res) => {
-  const { bodyShape, occasion, selectedOutfit } = req.body;
+  const { bodyShape, occasion, selectedOutfit, gender = 'female' } = req.body;
 
   if (!bodyShape) {
     return res.status(400).json({ error: 'Missing bodyShape parameter' });
@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const { advice } = await generateStylingAdvice(bodyShape, occasion, selectedOutfit);
+    const { advice } = await generateStylingAdvice(bodyShape, occasion, selectedOutfit, gender);
     return res.json({ advice });
   } catch (error) {
     console.warn('[style-advice Route] Groq call failed. Returning high-quality local styling advice.');

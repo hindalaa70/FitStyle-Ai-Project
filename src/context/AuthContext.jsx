@@ -9,6 +9,10 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 
+// ─── HARDCODED ADMIN CREDENTIALS ─── (Change these to your actual credentials)
+const ADMIN_EMAIL = 'admin@fitstyle.store';    // ← change to your email
+const ADMIN_PASSWORD_HINT = null;               // not stored here — set in Firebase Console
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -31,12 +35,14 @@ export const AuthProvider = ({ children }) => {
           if (userDoc.exists()) {
             role = userDoc.data().role || 'shopper';
           } else {
-            // Document doesn't exist, create it (resilient fallback)
+            // Auto-assign 'owner' role only to the hardcoded admin email
+            const assignedRole = user.email === ADMIN_EMAIL ? 'owner' : 'shopper';
             await setDoc(userDocRef, {
               email: user.email,
-              role: 'shopper',
+              role: assignedRole,
               createdAt: new Date()
             });
+            role = assignedRole;
           }
         } catch (error) {
           console.error('[AuthContext] Error getting user role from Firestore:', error);

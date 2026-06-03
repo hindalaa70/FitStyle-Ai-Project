@@ -33,16 +33,25 @@ To ensure maximum security and protect private API keys (such as Groq and Replic
 
 ## 🔐 Environment Setup
 
-Create a `.env` file in the **root** folder containing the following environment variables (a template is available in `.env.example`):
+**⚠️ You must create your own Firebase project.** The default credentials in `.env` are placeholders.
 
+### 1. Create Firebase Project
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Click "Add project" and follow setup
+3. Enable **Authentication** (Email/Password sign-in method)
+4. Enable **Firestore Database** in test mode
+
+### 2. Get Firebase Config
+1. Project Settings → Your Apps → Web App Config
+2. Copy the configuration values to `.env`:
 ```env
 # Frontend Client-side Firebase Credentials (automatically loaded by Vite)
-VITE_FIREBASE_API_KEY=your_firebase_api_key
-VITE_FIREBASE_AUTH_DOMAIN=fitstyle-ai-b6276.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=fitstyle-ai-b6276
-VITE_FIREBASE_STORAGE_BUCKET=fitstyle-ai-b6276.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=823192310136
-VITE_FIREBASE_APP_ID=1:823192310136:web:f31beb4e42cbe5f2b5b88d
+VITE_FIREBASE_API_KEY=YOUR_API_KEY_HERE
+VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT_ID.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abc123def456
 
 # Backend Server-side Secrets (never compiled into client bundle)
 GROQ_API_KEY=your_groq_api_key_here
@@ -90,13 +99,15 @@ npm run dev
 ```
 Open `http://localhost:5173` in your browser. Vite is configured to proxy all `/api/*` traffic automatically to port `5000`.
 
+**⚠️ Firebase Setup Required:** The default `.env` has placeholder credentials. You MUST create your own Firebase project at https://console.firebase.google.com/ and update `.env` with your config before login will work.
+
 ---
 
 ## 🗄️ Firestore Setup Guide
 
 ### 1. Enable Firestore Database
 1. Go to the [Firebase Console](https://console.firebase.google.com/).
-2. Select your project: **`fitstyle-ai-b6276`**.
+2. Select your project.
 3. Under Build, click **Firestore Database** and choose **Create Database**.
 4. Set the location and select Start in test mode (or production mode).
 

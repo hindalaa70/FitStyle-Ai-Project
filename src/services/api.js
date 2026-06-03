@@ -43,9 +43,10 @@ export const fetchTryOn = async (humanImage, garmentImage, garmentDescription, c
  * @param {string} bodyShape - Classified body shape (Hourglass, Rectangle, etc.)
  * @param {string} occasion - Selected shopping occasion
  * @param {object} selectedOutfit - Current outfit combination
+ * @param {string} gender - User gender for filtering recommendations (default: 'female')
  * @returns {Promise<{advice: string}>}
  */
-export const fetchStyleAdvice = async (bodyShape, occasion, selectedOutfit) => {
+export const fetchStyleAdvice = async (bodyShape, occasion, selectedOutfit, gender = 'female') => {
   console.log('[API Service] Calling POST /api/style-advice...');
   
   try {
@@ -58,6 +59,7 @@ export const fetchStyleAdvice = async (bodyShape, occasion, selectedOutfit) => {
         bodyShape,
         occasion,
         selectedOutfit,
+        gender,
       }),
     });
 
@@ -72,4 +74,23 @@ export const fetchStyleAdvice = async (bodyShape, occasion, selectedOutfit) => {
     console.error('[API Service] fetchStyleAdvice failed:', error);
     throw error;
   }
+};
+
+/**
+ * Send a garment image to the backend for AI attribute extraction
+ * @param {string} imageBase64 - base64 string (no data URI prefix)
+ * @param {string} mimeType - e.g. 'image/jpeg'
+ * @returns {Promise}
+ */
+export const fetchAnalyzeProduct = async (imageBase64, mimeType = 'image/jpeg') => {
+  const response = await fetch('/api/analyze-product', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, mimeType }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Analyze request failed');
+  }
+  return response.json(); // { success, data: { name, category, ... } }
 };

@@ -37,9 +37,9 @@ router.post('/', async (req, res) => {
       console.warn(`[tryon Route] Attempt ${attempt} failed with error:`, error.message);
       attempt++;
       
-      // Short delay before retry
+      // Longer delay before retry to avoid rate limits
       if (attempt <= maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
     }
   }

@@ -15,6 +15,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 import tryonRouter from './routes/tryon.js';
 import styleRouter from './routes/style.js';
 import demoRouter from './routes/demo.js';
+import analyzeProductRouter from './routes/analyzeProduct.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/api/tryon', tryonRouter);
 app.use('/api/style-advice', styleRouter);
 app.use('/api/create-demo', demoRouter);
+app.use('/api/analyze-product', analyzeProductRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

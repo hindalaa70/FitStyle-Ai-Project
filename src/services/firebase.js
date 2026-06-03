@@ -19,136 +19,220 @@ export const db = getFirestore(app);
 
 // Seed Data definition
 const SEED_PRODUCTS = [
+  // ─── TOPS ───────────────────────────────────────────────
   {
-    id: "top_blazer",
-    name: "Classic Silk-Blend Blazer",
+    id: "top_blazer_formal",
+    name: "Classic Tailored Blazer",
     category: "Top",
     occasion: "Formal",
-    occasions: ["Formal", "Interview"], // internal backward compatibility
-    sizes: ["S", "M", "L", "XL"],
+    occasions: ["Formal", "Interview"],
+    sizes: ["XS", "S", "M", "L", "XL"],
     price: 129.50,
-    imageUrl: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Rectangle", "Inverted Triangle", "Pear", "Apple"]
   },
   {
-    id: "top_blouse",
-    name: "Elegance Ruffle Chiffon Blouse",
+    id: "top_blouse_chiffon",
+    name: "Ruffle Chiffon Blouse",
     category: "Top",
     occasion: "Party",
-    occasions: ["Formal", "Wedding", "Party"],
+    occasions: ["Party", "Wedding", "Formal"],
     sizes: ["XS", "S", "M", "L"],
     price: 59.99,
-    imageUrl: "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1485462537746-965f33f7f6a7?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Rectangle", "Apple"]
   },
   {
-    id: "top_knitwear",
-    name: "Luxury Merino Crewneck Sweater",
+    id: "top_knit_casual",
+    name: "Soft Ribbed Knit Sweater",
     category: "Top",
     occasion: "Casual",
     occasions: ["Casual"],
     sizes: ["S", "M", "L", "XL", "XXL"],
-    price: 79.00,
-    imageUrl: "https://images.unsplash.com/photo-1574164904299-3a102b110380?w=500&auto=format&fit=crop&q=60",
+    price: 49.00,
+    imageUrl: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=500&auto=format&fit=crop&q=60",
     shapes: ["Rectangle", "Apple", "Hourglass", "Inverted Triangle"]
   },
   {
-    id: "top_tshirt",
-    name: "Premium Slub Cotton Tee",
+    id: "top_shirt_interview",
+    name: "Crisp White Button-Down Shirt",
     category: "Top",
-    occasion: "Casual",
-    occasions: ["Casual"],
+    occasion: "Interview",
+    occasions: ["Interview", "Formal"],
     sizes: ["XS", "S", "M", "L", "XL"],
-    price: 28.00,
-    imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop&q=60",
-    shapes: ["Rectangle", "Pear", "Apple", "Hourglass", "Inverted Triangle"]
+    price: 45.00,
+    imageUrl: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Rectangle", "Inverted Triangle", "Hourglass", "Pear"]
   },
   {
-    id: "bottom_trouser",
+    id: "top_camisole_wedding",
+    name: "Satin Slip Camisole Top",
+    category: "Top",
+    occasion: "Wedding",
+    occasions: ["Wedding", "Party"],
+    sizes: ["XS", "S", "M", "L"],
+    price: 38.00,
+    imageUrl: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Pear", "Rectangle"]
+  },
+
+  // ─── BOTTOMS ─────────────────────────────────────────────
+  {
+    id: "bottom_trouser_formal",
     name: "High-Waist Tailored Trousers",
     category: "Bottom",
-    occasion: "Interview",
-    occasions: ["Formal", "Interview", "Wedding"],
-    sizes: ["S", "M", "L", "XL"],
+    occasion: "Formal",
+    occasions: ["Formal", "Interview"],
+    sizes: ["XS", "S", "M", "L", "XL"],
     price: 89.00,
-    imageUrl: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Inverted Triangle", "Rectangle"]
   },
   {
-    id: "bottom_skirt",
+    id: "bottom_midi_skirt",
     name: "Pleated A-Line Midi Skirt",
     category: "Bottom",
     occasion: "Wedding",
-    occasions: ["Casual", "Wedding", "Party"],
+    occasions: ["Wedding", "Party", "Casual"],
     sizes: ["XS", "S", "M", "L"],
     price: 65.00,
-    imageUrl: "https://images.unsplash.com/photo-1583496661160-fb48862c4a4e?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1577900232427-18219b9166a0?w=500&auto=format&fit=crop&q=60",
     shapes: ["Pear", "Hourglass", "Rectangle", "Apple", "Inverted Triangle"]
   },
   {
-    id: "bottom_jean",
-    name: "Relaxed Straight-Leg Denim",
+    id: "bottom_jeans_casual",
+    name: "High-Rise Straight Leg Jeans",
     category: "Bottom",
     occasion: "Casual",
     occasions: ["Casual"],
     sizes: ["XS", "S", "M", "L", "XL"],
     price: 75.00,
-    imageUrl: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1582418702059-97ebafb35d09?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Rectangle", "Apple", "Pear"]
   },
   {
-    id: "foot_stiletto",
-    name: "Classic Suede D'Orsay Pumps",
+    id: "bottom_pencil_skirt",
+    name: "Classic Pencil Skirt",
+    category: "Bottom",
+    occasion: "Interview",
+    occasions: ["Interview", "Formal"],
+    sizes: ["XS", "S", "M", "L"],
+    price: 55.00,
+    imageUrl: "https://images.unsplash.com/photo-1605763240000-7e93b172d754?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Rectangle", "Inverted Triangle"]
+  },
+  {
+    id: "bottom_floral_skirt",
+    name: "Floral Wrap Maxi Skirt",
+    category: "Bottom",
+    occasion: "Party",
+    occasions: ["Party", "Casual", "Wedding"],
+    sizes: ["XS", "S", "M", "L", "XL"],
+    price: 60.00,
+    imageUrl: "https://images.unsplash.com/photo-1572804013427-4d7ca7268217?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Pear", "Hourglass", "Apple", "Rectangle"]
+  },
+
+  // ─── FOOTWEAR ────────────────────────────────────────────
+  {
+    id: "foot_heels_formal",
+    name: "Suede Block Heel Pumps",
     category: "Footwear",
     occasion: "Formal",
-    occasions: ["Formal", "Wedding", "Party", "Interview"],
-    sizes: ["36", "37", "38", "39", "40"],
+    occasions: ["Formal", "Interview", "Wedding", "Party"],
+    sizes: ["36", "37", "38", "39", "40", "41"],
     price: 110.00,
     imageUrl: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
   },
   {
-    id: "foot_sneaker",
-    name: "Minimalist Leather White Sneakers",
+    id: "foot_sneakers_casual",
+    name: "White Canvas Sneakers",
     category: "Footwear",
     occasion: "Casual",
     occasions: ["Casual"],
-    sizes: ["36", "37", "38", "39", "40", "41", "42"],
-    price: 95.00,
-    imageUrl: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&auto=format&fit=crop&q=60",
+    sizes: ["36", "37", "38", "39", "40", "41"],
+    price: 69.00,
+    imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
   },
   {
-    id: "foot_loafers",
-    name: "Italian Leather Penny Loafers",
+    id: "foot_sandals_party",
+    name: "Strappy Heeled Sandals",
+    category: "Footwear",
+    occasion: "Party",
+    occasions: ["Party", "Wedding", "Casual"],
+    sizes: ["36", "37", "38", "39", "40"],
+    price: 85.00,
+    imageUrl: "https://images.unsplash.com/photo-1515347619252-60a4bf4fff4f?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
+  },
+  {
+    id: "foot_loafers_interview",
+    name: "Leather Pointed Toe Flats",
     category: "Footwear",
     occasion: "Interview",
-    occasions: ["Formal", "Interview", "Casual"],
-    sizes: ["37", "38", "39", "40", "41", "42"],
-    price: 120.00,
-    imageUrl: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=500&auto=format&fit=crop&q=60",
+    occasions: ["Interview", "Formal", "Casual"],
+    sizes: ["36", "37", "38", "39", "40", "41"],
+    price: 95.00,
+    imageUrl: "https://images.unsplash.com/photo-1581101767113-1677fc2beaa8?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
   },
+
+  // ─── ACCESSORIES ─────────────────────────────────────────
   {
-    id: "acc_handbag",
+    id: "acc_tote_formal",
     name: "Structured Leather Tote Bag",
     category: "Accessory",
     occasion: "Formal",
     occasions: ["Formal", "Interview", "Casual"],
     sizes: ["OS"],
     price: 145.00,
-    imageUrl: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=60",
+    imageUrl: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
   },
   {
-    id: "acc_clutch",
-    name: "Metallic Envelope Chain Clutch",
+    id: "acc_clutch_party",
+    name: "Metallic Chain Clutch",
     category: "Accessory",
-    occasion: "Wedding",
+    occasion: "Party",
     occasions: ["Party", "Wedding"],
     sizes: ["OS"],
     price: 55.00,
     imageUrl: "https://images.unsplash.com/photo-1566150905458-1bf1fc15a4a5?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
+  },
+  {
+    id: "acc_scarf_casual",
+    name: "Silk Printed Neck Scarf",
+    category: "Accessory",
+    occasion: "Casual",
+    occasions: ["Casual", "Party"],
+    sizes: ["OS"],
+    price: 30.00,
+    imageUrl: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
+  },
+  {
+    id: "acc_belt_interview",
+    name: "Thin Leather Waist Belt",
+    category: "Accessory",
+    occasion: "Interview",
+    occasions: ["Interview", "Formal", "Casual"],
+    sizes: ["OS"],
+    price: 35.00,
+    imageUrl: "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=500&auto=format&fit=crop&q=60",
+    shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
+  },
+  {
+    id: "acc_necklace_wedding",
+    name: "Delicate Pearl Necklace",
+    category: "Accessory",
+    occasion: "Wedding",
+    occasions: ["Wedding", "Formal", "Party"],
+    sizes: ["OS"],
+    price: 48.00,
+    imageUrl: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=500&auto=format&fit=crop&q=60",
     shapes: ["Hourglass", "Pear", "Apple", "Rectangle", "Inverted Triangle"]
   }
 ];
@@ -158,15 +242,21 @@ export const seedFirestoreIfEmpty = async () => {
   try {
     const productsRef = collection(db, 'products');
     const snapshot = await getDocs(productsRef);
+    const forceReseed = true;
+
     if (snapshot.empty) {
       console.log('[Firebase Service] Products collection is empty. Seeding seed items...');
+    } else if (forceReseed) {
+      console.log('[Firebase Service] Reseeding products with updated female-only catalogue...');
+    }
+
+    if (snapshot.empty || forceReseed) {
       for (const item of SEED_PRODUCTS) {
         const docRef = doc(db, 'products', item.id);
         const { id, ...data } = item;
-        // Make sure sizes is stored as array
         await setDoc(docRef, data);
       }
-      console.log('[Firebase Service] Firestore seeding successful.');
+      console.log('[Firebase Service] Firestore reseed complete.');
     }
   } catch (error) {
     console.error('[Firebase Service] Failed to seed Firestore:', error);
